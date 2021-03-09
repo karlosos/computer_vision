@@ -4,6 +4,7 @@ from funcy import print_durations
 
 from cfa import img_to_cfa
 from cfa import bayer_channel_for_index
+from convolution import add_padding
 
 
 @print_durations
@@ -72,11 +73,97 @@ def mean_neighbors(channel, i, j):
     upper_bound = i + 1 if i + 1 < height else height - 1
     left_bound = j - 1 if j - 1 >= 0 else 0
     right_bound = j + 1 if j + 1 < width else width - 1
-    return np.nanmean(channel[lower_bound:upper_bound+1, left_bound:right_bound+1])
+    return np.nanmean(channel[lower_bound:upper_bound + 1, left_bound:right_bound + 1])
+
+
+@print_durations()
+def malvar(mosaic):
+    """
+    Malvar algorithm
+
+    Henrique S. Malvar, Li-wei He, and Ross Cutler , High-Quality Linear Interpolation For Demosaicing Of Bayer-Patterned Color Images
+    :param bayer_mosaics: input image of shape (height, width, 3) with np.nan where value is unknown
+    :return: rgb image with interpolated values in channels
+    """
+    mosaic = add_padding(mosaic, 2)
+    height, width = mosaic.shape
+
+    bayer_mosaics = np.full((height, width, 3), np.nan, dtype=int)
+
+    GR_GB = np.array(
+        [[0, 0, -1, 0, 0],
+         [0, 0, 2, 0, 0],
+         [-1, 2, 4, 2, -1],
+         [0, 0, 2, 0, 0],
+         [0, 0, -1, 0, 0]]) / 8
+
+    Rg_RB_Bg_BR = np.array(
+        [[0, 0, 0.5, 0, 0],
+         [0, -1, 0, -1, 0],
+         [-1, 4, 5, 4, - 1],
+         [0, -1, 0, -1, 0],
+         [0, 0, 0.5, 0, 0]]) / 8
+
+    Rg_BR_Bg_RB = np.transpose(Rg_RB_Bg_BR)
+
+    Rb_BB_Br_RR = np.array(
+        [[0, 0, -1.5, 0, 0],
+         [0, 2, 0, 2, 0],
+         [-1.5, 0, 6, 0, -1.5],
+         [0, 2, 0, 2, 0],
+         [0, 0, -1.5, 0, 0]]) / 8
+
+    for i in range(2, height-2):
+        for j in range(2, width-2):
+            # Green channel
+            if bayer_channel_for_index(i, j) == 0 or bayer_channel_for_index(i, j) == 2:  # if in Red or Blue
+                c = mosaic[i - 2:i + 2 + 1, j - 2:j + 2 + 1]
+                value = (GR_GB * c).sum()
+                bayer_mosaics[i, j, 1] = int(value)
+            else:
+                bayer_mosaics[i, j, 1] = mosaic[i, j]
+            # Red channel
+            if bayer_channel_for_index(i, j) == 1:  # if R at green
+                if i % 2 == 0 and j % 2 == 0:  # if R row and B column
+                    c = mosaic[i - 2:i + 2 + 1, j - 2:j + 2 + 1]
+                    value = (Rg_RB_Bg_BR * c).sum()
+                    bayer_mosaics[i, j, 0] = int(value)
+                else:
+                    c = mosaic[i - 2:i + 2 + 1, j - 2:j + 2 + 1]
+                    value = (Rg_BR_Bg_RB * c).sum()
+                    bayer_mosaics[i, j, 0] = int(value)
+            elif bayer_channel_for_index(i, j) == 2: # if R at blue in B row B column
+                c = mosaic[i - 2:i + 2 + 1, j - 2:j + 2 + 1]
+                value = (Rb_BB_Br_RR * c).sum()
+                bayer_mosaics[i, j, 0] = int(value)
+            else:
+                bayer_mosaics[i, j, 0] = mosaic[i, j]
+            # Blue channel
+            if bayer_channel_for_index(i, j) == 1:  # if B at green
+                if i % 2 == 0 and j % 2 == 0:  # if R row and B column
+                    c = mosaic[i - 2:i + 2 + 1, j - 2:j + 2 + 1]
+                    value = (Rg_BR_Bg_RB * c).sum()
+                    bayer_mosaics[i, j, 2] = int(value)
+                else:
+                    c = mosaic[i - 2:i + 2 + 1, j - 2:j + 2 + 1]
+                    value = (Rg_RB_Bg_BR * c).sum()
+                    bayer_mosaics[i, j, 2] = int(value)
+            elif bayer_channel_for_index(i, j) == 0:  # if B at red in B row B column
+                c = mosaic[i - 2:i + 2 + 1, j - 2:j + 2 + 1]
+                value = (Rb_BB_Br_RR * c).sum()
+                bayer_mosaics[i, j, 2] = int(value)
+            else:
+                bayer_mosaics[i, j, 2] = mosaic[i, j]
+
+
+    plt.imshow(bayer_mosaics)
+    plt.show()
+
+    return
 
 
 def main():
-    img = plt.imread("./data/image1.jpg")
+    img = plt.imread("./data/image2.jpg")
     plt.imshow(img)
     plt.show()
 
@@ -87,6 +174,8 @@ def main():
     output = demosaicing(img_bayer, interpolation_method=simple_interpolation)
     plt.imshow(output)
     plt.show()
+
+    malvar(img_bayer)
 
 
 if __name__ == "__main__":
