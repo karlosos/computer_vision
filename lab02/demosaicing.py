@@ -6,6 +6,7 @@ from numba import jit
 from cfa import img_to_cfa
 from cfa import bayer_channel_for_index
 from convolution import add_padding
+from metrics import psnr
 
 # Supressing deprecation warnings from numba
 from numba.core.errors import (
@@ -185,17 +186,20 @@ def demosaicing_malvar(mosaic):
             else:
                 bayer_mosaics[i, j, 2] = mosaic[i, j]
 
-    return bayer_mosaics
+    return bayer_mosaics[2:-2, 2:-2, :]
 
 
 def main():
+    """
+    Testing demosaicing on single image
+    """
     img = plt.imread("./data/image2.jpg")
     plt.imshow(img)
     plt.title("Original image")
     plt.show()
 
     img_bayer = img_to_cfa(img)
-    plt.imshow(img_bayer, cmap='gray')
+    plt.imshow(img_bayer, cmap="gray")
     plt.title("CFA image")
     plt.show()
 
@@ -203,6 +207,8 @@ def main():
         img_bayer, interpolation_method=simple_interpolation
     )
     output_malvar = demosaicing_malvar(img_bayer)
+    print(output_simple.shape)
+    print(output_malvar.shape)
 
     fig, axes = plt.subplots(1, 2)
     axes[0].imshow(output_simple)
@@ -211,6 +217,43 @@ def main():
     axes[1].set_title("Malvar algorithm")
     plt.show()
 
+    psnr_simple = psnr(img, output_simple)
+    psnr_malvar = psnr(img, output_malvar)
+
+    print(f"Original to original PSNR: {psnr(img, img)}")
+    print(f"Simple interpolation PSNR: {psnr_simple}")
+    print(f"Malvar interpolation PSNR: {psnr_malvar}")
+
+
+def compare_demosaicing():
+    files = ["./data/image1.jpg", "./data/image2.jpg", "./data/image3.jpg"]
+
+    data = {"image": [], "psnr_simple": [], "psnr_malvar": []}
+
+    for f in files:
+        img = plt.imread(f)
+        img_bayer = img_to_cfa(img)
+
+        output_simple = demosaicing_simple(
+            img_bayer, interpolation_method=simple_interpolation
+        )
+        output_malvar = demosaicing_malvar(img_bayer)
+
+        psnr_simple = psnr(img, output_simple)
+        psnr_malvar = psnr(img, output_malvar)
+
+        data["image"].append(f)
+        data["psnr_simple"].append(psnr_simple)
+        data["psnr_malvar"].append(psnr_malvar)
+
+    import pandas as pd
+
+    df = pd.DataFrame(data)
+    df.to_csv("experiments_data.csv")
+    print(df)
+    print(df.mean())
+
 
 if __name__ == "__main__":
     main()
+    compare_demosaicing()
