@@ -256,4 +256,4 @@ def compare_demosaicing():
 
 if __name__ == "__main__":
     main()
-    compare_demosaicing()
+    # compare_demosaicing()

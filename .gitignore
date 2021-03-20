@@ -139,3 +139,7 @@ cython_debug/
 
 .idea/
 lab01/data/lfw-deepfunneled
+lab03/cascade
+lab03/dataset/negatives
+lab03/dataset/positives
+lab03/dataset/tests
