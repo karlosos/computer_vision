@@ -24,12 +24,14 @@ def main():
         exit(0)
 
     #-- 2. Read the image
-    for i in range(20):
+    for i in range(10):
         img = cv.imread(f'./dataset/tests/ball({201+i}).jpg')
         img = detectAndDisplay(img, cascade)
+        img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
         plt.imshow(img)
         plt.show()
 
 
 if __name__ == "__main__":
     main()
+    exit(0)
