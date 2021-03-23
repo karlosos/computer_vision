@@ -11,8 +11,8 @@ import numpy as np
 def main():
     kat = "./data"
 
-    # plik = "dublin.mp4"
-    plik = "dataset_video.avi"
+    plik = "dublin.mp4"
+    # plik = "dataset_video.avi"
     cap = cv2.VideoCapture(kat + "/" + plik)
 
     fgbgAdaptiveGaussain = cv2.createBackgroundSubtractorMOG2()
@@ -20,12 +20,25 @@ def main():
     _, frame = cap.read()
     first_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     first_gray = cv2.GaussianBlur(first_gray, (5, 5), 0)
+    last_frames = [first_gray, ]
+    previous_background = first_gray
+    num_last_frames = 24
+    alpha = 0.05
+    # Przy małej alfa jest długa ścieżka (trailing)
 
     while 1:
         ret, frame = cap.read()
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        fgmask = cv2.absdiff(first_gray, gray_frame)
+        # if (len(last_frames) >= num_last_frames):
+        #     last_frames.pop(0)
+        # last_frames.append(gray_frame)
+        # weights = np.logspace(0, 1, len(last_frames))
+        # mean_frame = np.average(last_frames, axis=0, weights=weights).astype('uint8')
+        background = (1 - alpha)*previous_background + alpha*gray_frame
+        background = background.astype('uint8')
+        fgmask = cv2.absdiff(background, gray_frame)
         _, fgmask = cv2.threshold(fgmask, 25, 255, cv2.THRESH_BINARY)
+        previous_background = background
 
         # noisefld=np.random.randn(frame.shape[0],frame.shape[1])
         # frame[:,:,0]=(frame[:,:,0]+10*noisefld).astype('int')
