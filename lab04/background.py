@@ -12,8 +12,8 @@ import numpy as np
 def main():
     kat = "./data"
 
-    plik = "dublin.mp4"
-    # plik = "dataset_video.avi"
+    # plik = "dublin.mp4"
+    plik = "dataset_video.avi"
     cap = cv2.VideoCapture(kat + "/" + plik)
 
     fgbgAdaptiveGaussain = cv2.createBackgroundSubtractorMOG2()
@@ -22,19 +22,20 @@ def main():
     first_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     first_gray = cv2.GaussianBlur(first_gray, (5, 5), 0)
     previous_background = first_gray
-    alpha = 0.05
+    alpha = 0.1
     # Przy małej alfa jest długa ścieżka (trailing)
     last_frames = [frame, ]
-    num_last_frames = 24
+    num_last_frames = 50
 
     while 1:
         ret, frame = cap.read()
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        background = (1 - alpha)*previous_background + alpha*gray_frame
-        background = background.astype('uint8')
+        background = previous_background
         fgmask = cv2.absdiff(background, gray_frame)
         _, fgmask = cv2.threshold(fgmask, 25, 255, cv2.THRESH_BINARY)
+        background = (1 - alpha)*previous_background + alpha*gray_frame
+        background = background.astype('uint8')
         previous_background = background
 
         # noisefld=np.random.randn(frame.shape[0],frame.shape[1])
@@ -49,26 +50,33 @@ def main():
             last_frames.pop(0)
         last_frames.append(frame)
         B = np.mean(last_frames, axis=0).astype('uint8')
-        a = 0.1
-        b = 0.2
-        th = 0.2
-        ts = 0.2
+        a = 1
+        b = 3
+        th = 250
+        ts = 250
         cond_1 = I[:, :, 2]/B[:, :, 2] >= a
         cond_2 = I[:, :, 2]/B[:, :, 2] <= b
+        SP_1 = np.logical_and(cond_1, cond_2)
         cond_3 = I[:, :, 1] - B[:, :, 1] <= ts
         cond_4 = np.abs(I[:, :, 0] - B[:, :, 0]) <= th
-        SP = np.logical_and(np.logical_and(cond_1, cond_2), np.logical_and(cond_3, cond_4))
+        SP_2 = np.logical_and(cond_3, cond_4)
+        SP = np.logical_and(SP_1, SP_2)
+        SP = np.logical_not(SP)
         SP = SP.astype('uint8')*255
 
         cv2.namedWindow("Background Subtraction", 0)
         cv2.namedWindow("Background Subtraction Adaptive Gaussian", 0)
         cv2.namedWindow("Shadow", 0)
         cv2.namedWindow("Original", 0)
+        cv2.namedWindow(f"Background alpha {alpha}", 0)
+        cv2.namedWindow(f"Background {num_last_frames} frames", 0)
 
         cv2.imshow("Background Subtraction", fgmask)
         cv2.imshow("Background Subtraction Adaptive Gaussian", fgbgAdaptiveGaussainmask)
         cv2.imshow("Original", frame)
         cv2.imshow("Shadow", SP)
+        cv2.imshow(f"Background {num_last_frames} frames", B)
+        cv2.imshow(f"Background apha {alpha}", previous_background)
 
         k = cv2.waitKey(1) & 0xFF
 
