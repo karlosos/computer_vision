@@ -42,8 +42,23 @@ def main():
             cv2.imwrite('opticalhsv.png', rgb)
         prvs = next
 
+        quiver_viz(flow, frame2)
+
     cap.release()
     cv2.destroyAllWindows()
+
+
+def quiver_viz(flow, frame2):
+    X = np.arange(0, flow.shape[1], 10)
+    Y = np.arange(0, flow.shape[0], 10)
+    U = flow[Y, :, :][:, X, :][:, :, 0]
+    V = flow[Y, :, :][:, X, :][:, :, 1]
+    fig = plt.figure()
+    plt.imshow(frame2)
+    plt.quiver(X, Y, U, V)
+    plt.draw()
+    plt.waitforbuttonpress(0)  # this will wait for indefinite time
+    plt.close(fig)
 
 
 if __name__ == '__main__':
